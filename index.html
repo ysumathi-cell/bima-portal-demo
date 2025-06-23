@@ -7,7 +7,7 @@
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Inter for consistent typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- React & ReactDOM CDNs for React functionality -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -48,9 +48,10 @@
         // --- Mock Data Store (for demonstration purposes only) ---
         // In a real application, this data would come from a backend database.
         let allRequests = [
-            { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: null },
+            // Added externalClaimId to REQ001 for demonstration of new functionality
+            { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: null, externalClaimId: 'EXT-HP-001' },
             { id: 'REQ002', customerName: 'Bob Johnson', nic: '859876543V', type: 'Case Comment', comment: 'Customer inquiring about warranty status.', claimId: 'CLI456', status: 'Open', date: '2024-06-19', history: [], assignedTo: null },
-            { id: 'REQ003', customerName: 'Charlie Brown', nic: '923456789V', type: 'Claim Intimation', product: 'B-Care', remark: 'Phone battery draining fast', status: 'Pending Documents', date: '2024-06-18', history: [], assignedTo: null },
+            { id: 'REQ003', customerName: 'Charlie Brown', nic: '923456789V', type: 'Claim Intimation', product: 'B-Care', remark: 'Phone battery draining fast', status: 'Pending Documents', date: '2024-06-18', history: [], assignedTo: 'Claims Officer B', externalClaimId: 'CARE-B-123' },
             { id: 'REQ004', customerName: 'Diana Prince', nic: '654321098V', type: 'Case Comment', comment: 'Follow-up on product issue for REQ001.', claimId: 'REQ001', status: 'Resolved', date: '2024-06-17', history: [{ author: 'CS Officer', comment: 'Initial query', timestamp: '2024-06-17T10:00:00Z' }], assignedTo: 'Claims Officer A' },
             { id: 'REQ005', customerName: 'Eve Davis', nic: '765432109V', type: 'Claim Intimation', product: 'HP', remark: 'Printer not connecting to Wi-Fi', status: 'Open', date: '2024-06-21', history: [], assignedTo: null },
         ];
@@ -400,7 +401,7 @@
             const headers = [
                 'Request ID', 'Customer Name', 'NIC', 'Type', 'Product', 'Remark',
                 'Comment', 'Claim ID (if case comment)', 'Status', 'Resolution Status', 'Date Created',
-                'Assigned To',
+                'Assigned To', 'External Claim ID', // Added External Claim ID header
                 'Latest Communication Author', 'Latest Communication Comment', 'Latest Communication Timestamp'
             ];
 
@@ -427,6 +428,7 @@
                     resolutionStatus,
                     request.date,
                     request.assignedTo || 'Unassigned',
+                    request.externalClaimId || '', // Include External Claim ID data
                     latestHistory.author || '',
                     latestHistory.comment || '',
                     latestHistory.timestamp ? new Date(latestHistory.timestamp).toLocaleString() : ''
@@ -594,6 +596,7 @@
                         {request.remark && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Remark:</span> {request.remark}</p>}
                         {request.comment && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">CS Comment:</span> {request.comment}</p>}
                         {request.claimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Related Claim ID:</span> {request.claimId}</p>}
+                        {request.externalClaimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">External Claim ID:</span> {request.externalClaimId}</p>} {/* Display External Claim ID */}
                         <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Current Status:</span> <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full shadow-sm ${
                           request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
                           request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
@@ -683,6 +686,7 @@
           const [nic, setNic] = useState('');
           const [product, setProduct] = useState('');
           const [remark, setRemark] = useState('');
+          const [externalClaimId, setExternalClaimId] = useState(''); // New state for external Claim ID
 
           const handleSubmit = (e) => {
             e.preventDefault();
@@ -697,7 +701,8 @@
                 status: 'Pending Review',
                 date: new Date().toISOString().slice(0, 10), //YYYY-MM-DD
                 history: [{ author: 'CS Officer', comment: remark || 'Initial claim intimation', timestamp: new Date().toISOString() }],
-                assignedTo: null // New claims are unassigned by default
+                assignedTo: null, // New claims are unassigned by default
+                externalClaimId: externalClaimId // Include the new externalClaimId
             };
             allRequests.push(newRequest); // Add to mock store
             console.log('New Claim Intimation Added:', newRequest);
@@ -707,6 +712,7 @@
             setNic('');
             setProduct('');
             setRemark('');
+            setExternalClaimId(''); // Clear external claim ID field
           };
 
           return (
@@ -771,6 +777,19 @@
                     placeholder="Add any relevant remarks about the claim"
                   ></textarea>
                 </div>
+                <div>
+                  <label htmlFor="externalClaimId" className="block text-sm font-semibold text-gray-800 mb-2">
+                    External Claim ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="externalClaimId"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={externalClaimId}
+                    onChange={(e) => setExternalClaimId(e.target.value)}
+                    placeholder="Enter an optional external claim identifier"
+                  />
+                </div>
                 <button
                   type="submit"
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
@@ -797,6 +816,32 @@
 
           const handleSubmit = (e) => {
             e.preventDefault();
+
+            let assignedOfficer = null;
+            // If a claimId is provided, try to find the assigned officer from a matching claim intimation
+            if (claimId) {
+                // First, try to match against the system-generated Request ID (id)
+                let matchedIntimation = allRequests.find(
+                    req => req.type === 'Claim Intimation' && req.id && req.id.toUpperCase() === claimId.toUpperCase()
+                );
+
+                // If not found by Request ID, try to match against the new externalClaimId
+                if (!matchedIntimation) {
+                    matchedIntimation = allRequests.find(
+                        req => req.type === 'Claim Intimation' && req.externalClaimId && req.externalClaimId.toUpperCase() === claimId.toUpperCase()
+                    );
+                }
+
+                if (matchedIntimation && matchedIntimation.assignedTo) {
+                    assignedOfficer = matchedIntimation.assignedTo;
+                    console.log(`Matching claim intimation found for Claim ID ${claimId} (via ${matchedIntimation.id ? 'Request ID' : 'External Claim ID'}). Assigning to: ${assignedOfficer}`);
+                } else if (matchedIntimation && !matchedIntimation.assignedTo) {
+                    console.log(`Matching claim intimation found for Claim ID ${claimId}, but it's not yet assigned.`);
+                } else {
+                    console.log(`No matching claim intimation found for Claim ID ${claimId}.`);
+                }
+            }
+
             const newRequestId = `REQ${String(allRequests.length + 1).padStart(3, '0')}`;
             const newRequest = {
                 id: newRequestId,
@@ -808,7 +853,7 @@
                 status: 'Open',
                 date: new Date().toISOString().slice(0, 10),
                 history: [{ author: 'CS Officer', comment: comment, timestamp: new Date().toISOString() }],
-                assignedTo: null // New case comments are unassigned by default
+                assignedTo: assignedOfficer // Assign the found officer, or null if not found
             };
             allRequests.push(newRequest); // Add to mock store
             console.log('New Case Comment Added:', newRequest);
@@ -831,7 +876,7 @@
                   <input
                     type="text"
                     id="nicComment"
-                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
                     value={nic}
                     onChange={(e) => setNic(e.target.value)}
                     placeholder="e.g., 123456789V"
@@ -876,7 +921,7 @@
                     className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
                     value={claimId}
                     onChange={(e) => setClaimId(e.target.value)}
-                    placeholder="If related to a specific claim, enter ID"
+                    placeholder="If related to a specific claim, enter ID (e.g., REQ001 or EXT-HP-001)"
                   />
                 </div>
                 <button
@@ -906,7 +951,7 @@
             useEffect(() => {
                 // Filter requests based on NIC search, ensuring it's for any request type initially
                 if (nicSearch.length > 2) { // Start filtering after 2 characters for performance
-                    setFilteredRequests(allRequests.filter(req => req.nic.includes(nicSearch)));
+                    setFilteredRequests(allRequests.filter(req => req.nic.toLowerCase().includes(nicSearch.toLowerCase())));
                 } else {
                     setFilteredRequests([]); // Clear filter if search is too short
                 }
@@ -986,7 +1031,7 @@
                                 {/* Display filtered requests if NIC search is active, otherwise all requests */}
                                 {(nicSearch.length > 2 ? filteredRequests : allRequests).map(req => (
                                     <option key={req.id} value={req.id}>
-                                        {req.id} - {req.customerName} ({req.type}) - Status: {req.status}
+                                        {req.id} - {req.customerName} ({req.type}) - Status: {req.status} {req.externalClaimId ? `(Ext ID: ${req.externalClaimId})` : ''}
                                     </option>
                                 ))}
                             </select>
@@ -1031,7 +1076,7 @@
             setSearchResults('loading');
             // Mock search: In a real application, you'd fetch data from your backend
             setTimeout(() => {
-              const results = allRequests.filter(req => req.nic === nic);
+              const results = allRequests.filter(req => req.nic.toLowerCase().includes(nic.toLowerCase()));
               if (results.length > 0) {
                 setSearchResults({
                   data: results,
@@ -1090,6 +1135,7 @@
                             {item.comment && <p className="text-sm text-gray-700 mb-1">Comment: {item.comment}</p>}
                             {item.remark && <p className="text-sm text-gray-700 mb-1">Remark: {item.remark}</p>}
                             {item.assignedTo && <p className="text-sm text-gray-700 mb-1">Assigned To: {item.assignedTo}</p>}
+                            {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>} {/* Display External Claim ID */}
                             {item.history && item.history.length > 0 && (
                                 <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                     <span className="font-semibold">Latest Update: </span>
@@ -1185,6 +1231,7 @@
                                                 {item.nic && <p className="text-sm text-gray-700 mb-1">NIC: {item.nic}</p>}
                                                 {item.comment && <p className="text-sm text-gray-700 mb-1">Comment: {item.comment}</p>}
                                                 {item.assignedTo && <p className="text-sm text-gray-700 mb-1">Assigned To: {item.assignedTo}</p>}
+                                                {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>} {/* Display External Claim ID */}
                                                 {item.history && item.history.length > 0 && (
                                                     <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                                         <span className="font-semibold">Latest Update: </span>
@@ -1491,6 +1538,52 @@
                 updateRequestInMockStore(requestId, { assignedTo: officerName });
                 setMessage(`Request ${requestId} assigned to ${officerName || 'Unassigned'} successfully!`);
                 setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
+
+                // --- Trigger Email Notification via Apps Script (Conceptual) ---
+                // In a real application, you'd fetch the assigned officer's email from a database.
+                // For this demo, we'll use a placeholder or the NOTIFICATION_EMAIL from Apps Script.
+                const assignedRequest = allRequests.find(req => req.id === requestId);
+                if (assignedRequest) {
+                    const payload = {
+                        requestId: assignedRequest.id,
+                        customerName: assignedRequest.customerName,
+                        nic: assignedRequest.nic,
+                        requestType: assignedRequest.type,
+                        requestStatus: assignedRequest.status,
+                        assignedTo: officerName,
+                        // officerEmail: 'email_of_assigned_officer@example.com' // You'd dynamically get this
+                    };
+
+                    // Replace 'YOUR_DEPLOYED_WEB_APP_URL' with the actual URL from your Google Apps Script deployment
+                    // This is a placeholder and won't work until you deploy your Apps Script and replace this URL.
+                    const WEB_APP_URL = 'YOUR_DEPLOYED_WEB_APP_URL';
+
+                    // Only send if a valid WEB_APP_URL is provided (i.e., not the placeholder)
+                    if (WEB_APP_URL !== 'YOUR_DEPLOYED_WEB_APP_URL') {
+                        fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload),
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('Apps Script response:', data);
+                            if (data.status === 'success') {
+                                console.log('Email notification successfully triggered via Apps Script.');
+                            } else {
+                                console.error('Error from Apps Script:', data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error sending data to Apps Script:', error);
+                        });
+                    } else {
+                        console.warn('Skipping Apps Script notification: WEB_APP_URL is not set. Please deploy your Google Apps Script and update the URL in this code.');
+                    }
+                }
+                // --- End Email Notification Trigger ---
             };
 
             return (
