@@ -894,7 +894,9 @@
             const handleSubmit = (e) => {
                 e.preventDefault();
                 if (!selectedRequestId) {
-                    alert('Please select a Request ID.'); // Using alert for simplicity in demo
+                    // Using alert for simplicity in demo
+                    // In a real application, replace this with a styled modal or inline message
+                    alert('Please select a Request ID.');
                     return;
                 }
 
@@ -903,7 +905,7 @@
                     const updatedHistory = [
                         ...(request.history || []),
                         {
-                            author: 'CS Officer', // This would be dynamic in a real app
+                            author: 'CS Officer', // This would be dynamic in a real app (e.g., from logged-in user context)
                             comment: comment,
                             timestamp: new Date().toISOString()
                         }
@@ -915,6 +917,8 @@
                     setNicSearch('');
                     setFilteredRequests([]);
                 } else {
+                     // Using alert for simplicity in demo
+                     // In a real application, replace this with a styled modal or inline message
                     alert('Selected Request ID not found.');
                 }
             };
@@ -957,6 +961,7 @@
                                 required
                             >
                                 <option value="">Select a Request ID</option>
+                                {/* Display filtered requests if NIC search is active, otherwise all requests */}
                                 {(nicSearch.length > 2 ? filteredRequests : allRequests).map(req => (
                                     <option key={req.id} value={req.id}>
                                         {req.id} - {req.customerName} ({req.type}) - Status: {req.status}
