@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIMA Service Portal Demo</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for consistent typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React & ReactDOM CDNs for React functionality -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for in-browser JSX transformation (development only) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+      /* Apply Inter font family to the body */
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      /* Custom scrollbar styles for a cleaner look */
+      ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+          background: #888;
+          border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+          background: #555;
+      }
+    </style>
+</head>
+<body>
+    <!-- This div is where our React application will be mounted -->
+    <div id="root"></div>
+
+    <!-- The main script tag for our React application, type="text/babel" tells Babel to process it -->
+    <script type="text/babel">
+        // Import React hooks from the global React object provided by the CDN
+        const { useState, useEffect } = React;
+
+        // --- Mock Data Store (for demonstration purposes only) ---
+        // In a real application, this data would come from a backend database.
+        let allRequests = [
+            { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: null },
+            { id: 'REQ002', customerName: 'Bob Johnson', nic: '859876543V', type: 'Case Comment', comment: 'Customer inquiring about warranty status.', claimId: 'CLI456', status: 'Open', date: '2024-06-19', history: [], assignedTo: null },
+            { id: 'REQ003', customerName: 'Charlie Brown', nic: '923456789V', type: 'Claim Intimation', product: 'B-Care', remark: 'Phone battery draining fast', status: 'Pending Documents', date: '2024-06-18', history: [], assignedTo: null },
+            { id: 'REQ004', customerName: 'Diana Prince', nic: '654321098V', type: 'Case Comment', comment: 'Follow-up on product issue for REQ001.', claimId: 'REQ001', status: 'Resolved', date: '2024-06-17', history: [{ author: 'CS Officer', comment: 'Initial query', timestamp: '2024-06-17T10:00:00Z' }], assignedTo: 'Claims Officer A' },
+            { id: 'REQ005', customerName: 'Eve Davis', nic: '765432109V', type: 'Claim Intimation', product: 'HP', remark: 'Printer not connecting to Wi-Fi', status: 'Open', date: '2024-06-21', history: [], assignedTo: null },
+        ];
+
+        // Mock list of Claims Officers for assignment
+        const mockClaimsOfficers = ['Claims Officer A', 'Claims Officer B', 'Claims Officer C'];
+
+
+        /**
+         * Function to simulate updating a request in the mock data store.
+         * @param {string} requestId - The ID of the request to update.
+         * @param {object} updates - An object containing fields to update.
+         */
+        const updateRequestInMockStore = (requestId, updates) => {
+            allRequests = allRequests.map(req =>
+                req.id === requestId ? { ...req, ...updates } : req
+            );
+            console.log('Mock Data Store Updated:', allRequests);
+        };
+
+        /**
+         * LoginPage Component (for CS Officer)
+         * Handles user login with a hardcoded username and password for demonstration.
+         * In a real application, this would connect to a secure backend for authentication.
+         * @param {object} props - Component props
+         * @param {function} props.onLogin - Callback function on successful login
+         */
+        function LoginPage({ onLogin }) {
+          const [username, setUsername] = useState('');
+          const [password, setPassword] = useState('');
+          const [error, setError] = useState('');
+
+          const handleLogin = () => {
+            // Mock authentication: 'cs_officer' / 'password123'
+            if (username === 'cs_officer' && password === 'password123') {
+              onLogin(username);
+            } else {
+              setError('Invalid username or password. Please try again.');
+            }
+          };
+
+          return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-200 p-4 font-sans">
+              <div className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-500 hover:scale-105">
+                <h2 className="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">CS Portal <span className="text-blue-600">Login</span></h2>
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-5 py-3 rounded-lg relative mb-6 animate-pulse" role="alert">
+                    <span className="block sm:inline">{error}</span>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="username">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    id="username"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <div className="mb-8">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="password">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <button
+                  onClick={handleLogin}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                >
+                  Login
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        /**
+         * ClaimsLoginPage Component (for Claims Team Officer)
+         * Handles user login with hardcoded username and password for the claims team.
+         * @param {object} props - Component props
+         * @param {function} props.onLogin - Callback function on successful login
+         */
+        function ClaimsLoginPage({ onLogin }) {
+          const [username, setUsername] = useState('');
+          const [password, setPassword] = useState('');
+          const [error, setError] = useState('');
+
+          const handleLogin = () => {
+            // Mock authentication for Claims Team: 'claims_officer' / 'claims123'
+            if (username === 'claims_officer' && password === 'claims123') {
+              onLogin(username);
+            } else {
+              setError('Invalid username or password. Please try again.');
+            }
+          };
+
+          return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-100 to-pink-200 p-4 font-sans">
+              <div className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-500 hover:scale-105">
+                <h2 className="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">Claims Portal <span className="text-purple-600">Login</span></h2>
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-5 py-3 rounded-lg relative mb-6 animate-pulse" role="alert">
+                    <span className="block sm:inline">{error}</span>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="claimsUsername">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    id="claimsUsername"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-purple-300 focus:border-purple-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <div className="mb-8">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="claimsPassword">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="claimsPassword"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-purple-300 focus:border-purple-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <button
+                  onClick={handleLogin}
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                >
+                  Login to Claims Portal
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        /**
+         * TlLoginPage Component (for Team Lead)
+         * Handles user login with hardcoded username and password for the Team Lead.
+         * @param {object} props - Component props
+         * @param {function} props.onLogin - Callback function on successful login
+         */
+        function TlLoginPage({ onLogin }) {
+          const [username, setUsername] = useState('');
+          const [password, setPassword] = useState('');
+          const [error, setError] = useState('');
+
+          const handleLogin = () => {
+            // Mock authentication for Team Lead: 'tl_officer' / 'tl123'
+            if (username === 'tl_officer' && password === 'tl123') {
+              onLogin(username);
+            } else {
+              setError('Invalid username or password. Please try again.');
+            }
+          };
+
+          return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-100 to-teal-200 p-4 font-sans">
+              <div className="bg-white p-10 rounded-xl shadow-2xl w-full max-w-md transform transition-transform duration-500 hover:scale-105">
+                <h2 className="text-4xl font-extrabold text-center text-gray-900 mb-8 tracking-tight">Team Lead <span className="text-teal-600">Portal Login</span></h2>
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-5 py-3 rounded-lg relative mb-6 animate-pulse" role="alert">
+                    <span className="block sm:inline">{error}</span>
+                  </div>
+                )}
+                <div className="mb-6">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="tlUsername">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    id="tlUsername"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-teal-300 focus:border-teal-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <div className="mb-8">
+                  <label className="block text-gray-800 text-base font-semibold mb-2" htmlFor="tlPassword">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    id="tlPassword"
+                    className="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-teal-300 focus:border-teal-500 transition duration-300 ease-in-out placeholder-gray-500"
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                    required
+                  />
+                </div>
+                <button
+                  onClick={handleLogin}
+                  className="w-full bg-gradient-to-r from-teal-600 to-cyan-700 hover:from-teal-700 hover:to-cyan-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-teal-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                >
+                  Login to TL Portal
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+
+        /**
+         * PendingRequests Component (for CS Officer)
+         * Displays a mock list of pending requests in a table.
+         * In a real application, this data would be fetched from a database via an API.
+         */
+        function PendingRequests() {
+            // Use the global mock data for requests
+            const [requests, setRequests] = useState(allRequests);
+
+            useEffect(() => {
+                // This effect simulates real-time updates by re-fetching from the mock store
+                // In a real app, this would be an onSnapshot listener for Firestore or WebSocket
+                const interval = setInterval(() => {
+                    setRequests([...allRequests]); // Force update by creating a new array
+                }, 1000); // Check for updates every second
+                return () => clearInterval(interval);
+            }, []);
+
+          return (
+            <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+              <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">Pending Requests</h3>
+              {requests.length === 0 ? (
+                <p className="text-gray-600 text-lg py-10 text-center">No pending requests at the moment. Great job!</p>
+              ) : (
+                <div className="overflow-x-auto flex-grow">
+                  <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
+                    <thead className="bg-blue-600 text-white">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Request ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Customer Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">NIC</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigned To</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Latest Comment</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {requests.map((request, index) => (
+                        <tr key={request.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition duration-150 ease-in-out`}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.customerName}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.nic}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.type}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm ${
+                              request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
+                              request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                              request.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                              request.status === 'Pending Documents' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {request.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.assignedTo || 'Unassigned'}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.date}</td>
+                          <td className="px-6 py-4 text-sm text-gray-700 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap">
+                            {request.history && request.history.length > 0
+                                ? `${request.history[request.history.length - 1].author}: ${request.history[request.history.length - 1].comment}`
+                                : 'No comments yet'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        /**
+         * Function to escape CSV values
+         * Ensures that values containing commas, double quotes, or newlines are properly quoted.
+         * @param {string} value - The string value to escape.
+         * @returns {string} The escaped string.
+         */
+        const escapeCSV = (value) => {
+            if (value === null || value === undefined) {
+                return '';
+            }
+            let stringValue = String(value);
+            // If the value contains a comma, double quote, or newline, enclose it in double quotes
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+                // Escape existing double quotes by doubling them
+                stringValue = stringValue.replace(/"/g, '""');
+                return `"${stringValue}"`;
+            }
+            return stringValue;
+        };
+
+        /**
+         * Function to generate and download a CSV report from request data.
+         * @param {Array<object>} data - The array of request objects.
+         */
+        const downloadCSVReport = (data) => {
+            const headers = [
+                'Request ID', 'Customer Name', 'NIC', 'Type', 'Product', 'Remark',
+                'Comment', 'Claim ID (if case comment)', 'Status', 'Resolution Status', 'Date Created',
+                'Assigned To',
+                'Latest Communication Author', 'Latest Communication Comment', 'Latest Communication Timestamp'
+            ];
+
+            const csvRows = [];
+            csvRows.push(headers.map(escapeCSV).join(',')); // Add headers to CSV
+
+            data.forEach(request => {
+                const latestHistory = request.history && request.history.length > 0
+                    ? request.history[request.history.length - 1]
+                    : {};
+
+                const resolutionStatus = ['Resolved', 'Closed'].includes(request.status) ? 'Resolved' : 'Unresolved';
+
+                const row = [
+                    request.id,
+                    request.customerName,
+                    request.nic,
+                    request.type,
+                    request.product || '', // Handle undefined/null
+                    request.remark || '',
+                    request.comment || '',
+                    request.claimId || '',
+                    request.status,
+                    resolutionStatus,
+                    request.date,
+                    request.assignedTo || 'Unassigned',
+                    latestHistory.author || '',
+                    latestHistory.comment || '',
+                    latestHistory.timestamp ? new Date(latestHistory.timestamp).toLocaleString() : ''
+                ];
+                csvRows.push(row.map(escapeCSV).join(','));
+            });
+
+            const csvString = csvRows.join('\n');
+            const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', 'claims_report.csv');
+            document.body.appendChild(link); // Required for Firefox
+            link.click();
+            document.body.removeChild(link); // Clean up
+        };
+
+
+        /**
+         * ClaimsRequestsView Component (for Claims Team)
+         * Displays a list of all requests with the option to view details and reply.
+         * Includes a button to download all requests as a CSV report.
+         * @param {object} props - Component props
+         * @param {function} props.onReply - Callback function when a claims officer wants to reply to a request
+         */
+        function ClaimsRequestsView({ onReply }) {
+            const [requests, setRequests] = useState(allRequests);
+
+            useEffect(() => {
+                // Simulate real-time updates from the mock data store
+                const interval = setInterval(() => {
+                    setRequests([...allRequests]); // Force update
+                }, 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+                    <div className="flex justify-between items-center mb-6 border-b-2 border-purple-200 pb-4">
+                        <h3 className="text-3xl font-bold text-gray-800">All Customer Requests</h3>
+                        <button
+                            onClick={() => downloadCSVReport(requests)}
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-base"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Download Report (CSV)
+                        </button>
+                    </div>
+
+                    {requests.length === 0 ? (
+                        <p className="text-gray-600 text-lg py-10 text-center">No requests available at the moment.</p>
+                    ) : (
+                        <div className="overflow-x-auto flex-grow">
+                            <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
+                                <thead className="bg-purple-600 text-white">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Request ID</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Customer Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigned To</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Date</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {requests.map((request, index) => (
+                                        <tr key={request.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-purple-50 transition duration-150 ease-in-out`}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.customerName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.type}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm ${
+                                                  request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
+                                                  request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                  request.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                  request.status === 'Pending Documents' ? 'bg-red-100 text-red-800' :
+                                                  'bg-gray-100 text-gray-800'
+                                                }`}>
+                                                  {request.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.assignedTo || 'Unassigned'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.date}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button
+                                                    onClick={() => onReply(request.id)}
+                                                    className="bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white py-2 px-4 rounded-lg text-sm transition duration-300 transform hover:scale-105 shadow-md hover:shadow-lg active:scale-95"
+                                                >
+                                                    View / Reply
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        /**
+         * ReplyToRequestForm Component (for Claims Team)
+         * Allows claims officers to view request details and submit replies.
+         * @param {object} props - Component props
+         * @param {string} props.requestId - The ID of the request to reply to.
+         * @param {function} props.onSubmitReply - Callback function on successful reply submission.
+         * @param {function} props.onBack - Callback function to go back to the requests list.
+         */
+        function ReplyToRequestForm({ requestId, onSubmitReply, onBack }) {
+            const request = allRequests.find(req => req.id === requestId);
+            const [replyComment, setReplyComment] = useState('');
+            const [newStatus, setNewStatus] = useState(request?.status || '');
+
+            if (!request) {
+                return (
+                    <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col items-center justify-center text-center">
+                        <p className="text-red-600 text-2xl font-semibold mb-6">Request not found.</p>
+                        <button
+                            onClick={onBack}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-200 transform hover:scale-105 shadow-md"
+                        >
+                            Back to Requests
+                        </button>
+                    </div>
+                );
+            }
+
+            const handleSubmitReply = (e) => {
+                e.preventDefault();
+                const updatedHistory = [
+                    ...(request.history || []),
+                    {
+                        author: 'Claims Officer', // In a real app, this would be the actual logged-in claims officer's name
+                        comment: replyComment,
+                        timestamp: new Date().toISOString()
+                    }
+                ];
+                updateRequestInMockStore(requestId, { history: updatedHistory, status: newStatus });
+                onSubmitReply(`Reply to ${requestId} submitted successfully!`);
+                setReplyComment('');
+            };
+
+            return (
+                <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+                    <div className="flex justify-between items-center mb-6 border-b-2 border-purple-200 pb-4">
+                        <h3 className="text-3xl font-bold text-gray-800">Reply to Request: <span className="text-purple-600">{request.id}</span></h3>
+                        <button
+                            onClick={onBack}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm transition duration-200 shadow-sm hover:shadow-md"
+                        >
+                            Back to List
+                        </button>
+                    </div>
+
+                    {/* Request Details */}
+                    <div className="mb-8 border border-gray-200 p-6 rounded-lg bg-gray-50 shadow-inner">
+                        <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Customer Name:</span> {request.customerName}</p>
+                        <p className="text-gray-800 text-base mb-2"><span className="font-semibold">NIC:</span> {request.nic}</p>
+                        <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Type:</span> {request.type}</p>
+                        {request.product && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Product:</span> {request.product}</p>}
+                        {request.remark && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Remark:</span> {request.remark}</p>}
+                        {request.comment && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">CS Comment:</span> {request.comment}</p>}
+                        {request.claimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Related Claim ID:</span> {request.claimId}</p>}
+                        <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Current Status:</span> <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full shadow-sm ${
+                          request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
+                          request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                          request.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                          request.status === 'Pending Documents' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {request.status}
+                        </span></p>
+                        <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Assigned To:</span> {request.assignedTo || 'Unassigned'}</p>
+                    </div>
+
+                    {/* Communication History */}
+                    {request.history && request.history.length > 0 && (
+                        <div className="mb-8 p-4 border border-gray-200 rounded-lg bg-white shadow-sm max-h-56 overflow-y-auto">
+                            <h4 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Communication History</h4>
+                            <div className="space-y-4">
+                                {request.history.map((entry, index) => (
+                                    <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0">
+                                        <p className="text-sm text-gray-900 font-medium flex justify-between items-center">
+                                            <span>{entry.author}</span>
+                                            <span className="text-gray-500 text-xs">{new Date(entry.timestamp).toLocaleString()}</span>
+                                        </p>
+                                        <p className="text-gray-700 text-base italic mt-1">{entry.comment}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Reply Form */}
+                    <form onSubmit={handleSubmitReply} className="space-y-6">
+                        <div>
+                            <label htmlFor="replyComment" className="block text-sm font-semibold text-gray-800 mb-2">
+                                Your Reply / Comment
+                            </label>
+                            <textarea
+                                id="replyComment"
+                                rows="5"
+                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 transition duration-300 placeholder-gray-500"
+                                value={replyComment}
+                                onChange={(e) => setReplyComment(e.target.value)}
+                                placeholder="Enter your reply or internal comment here"
+                                required
+                            ></textarea>
+                        </div>
+                        <div>
+                            <label htmlFor="newStatus" className="block text-sm font-semibold text-gray-800 mb-2">
+                                Update Status
+                            </label>
+                            <select
+                                id="newStatus"
+                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 bg-white text-gray-800 focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-500 transition duration-300"
+                                value={newStatus}
+                                onChange={(e) => setNewStatus(e.target.value)}
+                                required
+                            >
+                                <option value="">Select new status</option>
+                                <option value="Pending Review">Pending Review</option>
+                                <option value="Pending Documents">Pending Documents</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Resolved">Resolved</option>
+                                <option value="Closed">Closed</option>
+                            </select>
+                        </div>
+                        <button
+                            type="submit"
+                            className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                        >
+                            Submit Reply & Update Status
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+
+        /**
+         * ClaimIntimationForm Component
+         * Form for submitting new claim intimations.
+         * On submission, it logs the data and triggers a success message.
+         * @param {object} props - Component props
+         * @param {function} props.onSubmit - Callback function on successful form submission
+         */
+        function ClaimIntimationForm({ onSubmit }) {
+          const [customerName, setCustomerName] = useState('');
+          const [nic, setNic] = useState('');
+          const [product, setProduct] = useState('');
+          const [remark, setRemark] = useState('');
+
+          const handleSubmit = (e) => {
+            e.preventDefault();
+            const newRequestId = `REQ${String(allRequests.length + 1).padStart(3, '0')}`;
+            const newRequest = {
+                id: newRequestId,
+                customerName,
+                nic,
+                product,
+                remark,
+                type: 'Claim Intimation',
+                status: 'Pending Review',
+                date: new Date().toISOString().slice(0, 10), //YYYY-MM-DD
+                history: [{ author: 'CS Officer', comment: remark || 'Initial claim intimation', timestamp: new Date().toISOString() }],
+                assignedTo: null // New claims are unassigned by default
+            };
+            allRequests.push(newRequest); // Add to mock store
+            console.log('New Claim Intimation Added:', newRequest);
+            onSubmit(); // Notify parent component of successful submission
+            // Clear form fields after submission
+            setCustomerName('');
+            setNic('');
+            setProduct('');
+            setRemark('');
+          };
+
+          return (
+            <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+              <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">New Claim Intimation</h3>
+              <form onSubmit={handleSubmit} className="space-y-6 flex-grow">
+                <div>
+                  <label htmlFor="customerName" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    id="customerName"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Enter customer's full name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="nic" className="block text-sm font-semibold text-gray-800 mb-2">
+                    NIC
+                  </label>
+                  <input
+                    type="text"
+                    id="nic"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={nic}
+                    onChange={(e) => setNic(e.target.value)}
+                    placeholder="e.g., 123456789V"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="product" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Product
+                  </label>
+                  <select
+                    id="product"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 bg-white text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300"
+                    value={product}
+                    onChange={(e) => setProduct(e.target.value)}
+                    required
+                  >
+                    <option value="">Select a product</option>
+                    <option value="HP">HP</option>
+                    <option value="HP Pro">HP Pro</option>
+                    <option value="B-Care">B-Care</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="remark" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Remark
+                  </label>
+                  <textarea
+                    id="remark"
+                    rows="4"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={remark}
+                    onChange={(e) => setRemark(e.target.value)}
+                    placeholder="Add any relevant remarks about the claim"
+                  ></textarea>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                >
+                  Submit Claim Intimation
+                </button>
+              </form>
+            </div>
+          );
+        }
+
+        /**
+         * CaseCommentForm Component
+         * Form for submitting new case comments.
+         * Logs the data and triggers a success message upon submission.
+         * @param {object} props - Component props
+         * @param {function} props.onSubmit - Callback function on successful form submission
+         */
+        function CaseCommentForm({ onSubmit }) {
+          const [nic, setNic] = useState('');
+          const [customerName, setCustomerName] = useState('');
+          const [comment, setComment] = useState('');
+          const [claimId, setClaimId] = useState('');
+
+          const handleSubmit = (e) => {
+            e.preventDefault();
+            const newRequestId = `REQ${String(allRequests.length + 1).padStart(3, '0')}`;
+            const newRequest = {
+                id: newRequestId,
+                customerName,
+                nic,
+                comment,
+                claimId,
+                type: 'Case Comment',
+                status: 'Open',
+                date: new Date().toISOString().slice(0, 10),
+                history: [{ author: 'CS Officer', comment: comment, timestamp: new Date().toISOString() }],
+                assignedTo: null // New case comments are unassigned by default
+            };
+            allRequests.push(newRequest); // Add to mock store
+            console.log('New Case Comment Added:', newRequest);
+            onSubmit(); // Notify parent component of successful submission
+            // Clear form fields after submission
+            setNic('');
+            setCustomerName('');
+            setComment('');
+            setClaimId('');
+          };
+
+          return (
+            <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+              <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">New Case Comment</h3>
+              <form onSubmit={handleSubmit} className="space-y-6 flex-grow">
+                <div>
+                  <label htmlFor="nicComment" className="block text-sm font-semibold text-gray-800 mb-2">
+                    NIC
+                  </label>
+                  <input
+                    type="text"
+                    id="nicComment"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={nic}
+                    onChange={(e) => setNic(e.target.value)}
+                    placeholder="e.g., 123456789V"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="customerNameComment" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Customer Name
+                  </label>
+                  <input
+                    type="text"
+                    id="customerNameComment"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Enter customer's full name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="comment" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Comment
+                  </label>
+                  <textarea
+                    id="comment"
+                    rows="4"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Enter your case comment"
+                    required
+                  ></textarea>
+                </div>
+                <div>
+                  <label htmlFor="claimId" className="block text-sm font-semibold text-gray-800 mb-2">
+                    Claim ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="claimId"
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={claimId}
+                    onChange={(e) => setClaimId(e.target.value)}
+                    placeholder="If related to a specific claim, enter ID"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                >
+                  Submit Case Comment
+                </button>
+              </form>
+            </div>
+          );
+        }
+
+        /**
+         * SearchByNic Component
+         * Provides a search interface for customer requests by NIC.
+         * Displays mock search results after a simulated delay.
+         * @param {object} props - Component props
+         */
+        function SearchByNic() {
+          const [nic, setNic] = useState('');
+          const [searchResults, setSearchResults] = useState(null); // null, 'loading', or {data: [...]}
+
+          const handleSearch = (e) => {
+            e.preventDefault();
+            setSearchResults('loading');
+            // Mock search: In a real application, you'd fetch data from your backend
+            setTimeout(() => {
+              const results = allRequests.filter(req => req.nic === nic);
+              if (results.length > 0) {
+                setSearchResults({
+                  data: results,
+                  customerName: results[0].customerName
+                });
+              } else {
+                setSearchResults({ data: [], customerName: null }); // No results found
+              }
+            }, 1000); // Simulate API call delay
+          };
+
+          return (
+            <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+              <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">Search by Customer NIC</h3>
+              <form onSubmit={handleSearch} className="mb-8">
+                <div className="flex flex-col sm:flex-row gap-4 items-end">
+                  <input
+                    type="text"
+                    id="searchNic"
+                    className="flex-grow border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                    value={nic}
+                    onChange={(e) => { setNic(e.target.value); setSearchResults(null); }}
+                    placeholder="Enter customer NIC to search"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-5 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                  >
+                    Search
+                  </button>
+                </div>
+              </form>
+
+              {searchResults === 'loading' && (
+                <div className="text-center py-12">
+                  <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <p className="mt-5 text-gray-700 text-lg">Searching for requests...</p>
+                </div>
+              )}
+
+              {searchResults && searchResults !== 'loading' && (
+                <div className="mt-8 flex-grow overflow-auto">
+                  {searchResults.data.length > 0 ? (
+                    <>
+                      <h4 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Results for NIC: <span className="text-blue-600">{nic}</span> {searchResults.customerName && `(${searchResults.customerName})`}</h4>
+                      <ul className="space-y-4">
+                        {searchResults.data.map((item, index) => (
+                          <li key={index} className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-md hover:shadow-lg transition duration-200">
+                            <p className="text-gray-900 font-bold text-lg mb-1">{item.type} <span className="text-blue-500">{item.id ? `(ID: ${item.id})` : ''}</span></p>
+                            {item.status && <p className="text-sm text-gray-700 mb-1">Status: <span className="font-semibold text-gray-900">{item.status}</span></p>}
+                            {item.product && <p className="text-sm text-gray-700 mb-1">Product: {item.product}</p>}
+                            {item.comment && <p className="text-sm text-gray-700 mb-1">Comment: {item.comment}</p>}
+                            {item.remark && <p className="text-sm text-gray-700 mb-1">Remark: {item.remark}</p>}
+                            {item.assignedTo && <p className="text-sm text-gray-700 mb-1">Assigned To: {item.assignedTo}</p>}
+                            {item.history && item.history.length > 0 && (
+                                <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
+                                    <span className="font-semibold">Latest Update: </span>
+                                    <p className="italic">{item.history[item.history.length - 1].author}: {item.history[item.history.length - 1].comment}</p>
+                                    <span className="text-gray-500">{new Date(item.history[item.history.length - 1].timestamp).toLocaleString()}</span>
+                                </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p className="text-gray-600 text-lg py-10 text-center">No requests found for the provided NIC. Please try a different NIC.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        }
+
+
+        /**
+         * DashboardPage Component (for CS Officer)
+         * The main dashboard interface after successful CS login.
+         * Manages navigation between different views (pending requests, forms, search).
+         * @param {object} props - Component props
+         * @param {string} props.username - The logged-in CS officer's username
+         * @param {function} props.onLogout - Callback function to handle CS logout
+         */
+        function DashboardPage({ username, onLogout }) {
+          const [activeView, setActiveView] = useState('pendingRequests'); // Controls which component is displayed
+          const [submissionSuccessMessage, setSubmissionSuccessMessage] = useState('');
+
+          const handleFormSubmitSuccess = (message) => {
+            setSubmissionSuccessMessage(message || 'Request successfully submitted!');
+            setActiveView('submissionSuccess'); // Show success message after form submission
+          };
+
+          const handleBackToDashboard = () => {
+            setActiveView('pendingRequests'); // Navigate back to pending requests view
+            setSubmissionSuccessMessage(''); // Clear success message
+          };
+
+          // Renders the content based on the activeView state
+          const renderContent = () => {
+            switch (activeView) {
+              case 'pendingRequests':
+                return <PendingRequests />;
+              case 'claimIntimation':
+                return <ClaimIntimationForm onSubmit={() => handleFormSubmitSuccess('Claim intimation successfully submitted!')} />;
+              case 'caseComment':
+                return <CaseCommentForm onSubmit={() => handleFormSubmitSuccess('Case comment successfully submitted!')} />;
+              case 'searchNic':
+                return <SearchByNic />;
+              case 'submissionSuccess':
+                return (
+                  <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col items-center justify-center text-center">
+                    <svg className="w-32 h-32 text-green-500 mb-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 className="text-4xl font-bold text-gray-800 mb-4">{submissionSuccessMessage}</h3>
+                    <p className="text-gray-600 text-lg mb-8">Your request has been processed and is awaiting team review.</p>
+                    <button
+                      onClick={handleBackToDashboard}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                    >
+                      Back to Dashboard
+                    </button>
+                  </div>
+                );
+              default:
+                return <PendingRequests />;
+            }
+          };
+
+          return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col font-sans">
+              {/* Header */}
+              <header className="bg-blue-800 text-white p-5 shadow-lg flex justify-between items-center z-10">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide">CS Portal</h1>
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm sm:text-base hidden md:block text-blue-200">Logged in as: <span className="font-semibold text-white">{username}</span></span>
+                  <button
+                    onClick={onLogout}
+                    className="bg-blue-700 hover:bg-blue-900 text-white text-sm sm:text-base font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-md hover:shadow-lg active:scale-95"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </header>
+
+              {/* Main Content Area */}
+              <div className="flex flex-1 flex-col lg:flex-row p-6 gap-6">
+                {/* Left Sidebar */}
+                <aside className="bg-white rounded-xl shadow-xl p-6 lg:w-1/4 w-full lg:max-h-[calc(100vh-140px)] overflow-y-auto">
+                  <h2 className="text-2xl font-bold text-gray-800 mb-5 border-b-2 border-blue-200 pb-4">Navigation</h2>
+                  <nav>
+                    <ul className="space-y-4">
+                      <li>
+                        <button
+                          onClick={() => setActiveView('pendingRequests')}
+                          className={`w-full text-left p-4 rounded-lg font-medium transition duration-200 text-lg flex items-center gap-3
+                            ${activeView === 'pendingRequests' ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'}
+                          `}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m7 0V4m0 0a2 2 0 012-2h2a2 2 0 012 2v6m-6 0v4m0-4h.01"></path></svg>
+                          Pending Requests
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={() => setActiveView('searchNic')}
+                          className={`w-full text-left p-4 rounded-lg font-medium transition duration-200 text-lg flex items-center gap-3
+                            ${activeView === 'searchNic' ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'}
+                          `}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                          Search by Customer NIC
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={() => setActiveView('claimIntimation')}
+                          className={`w-full text-left p-4 rounded-lg font-medium transition duration-200 text-lg flex items-center gap-3
+                            ${activeView === 'claimIntimation' ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'}
+                          `}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M17 17h.01"></path></svg>
+                          New Claim Intimation
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          onClick={() => setActiveView('caseComment')}
+                          className={`w-full text-left p-4 rounded-lg font-medium transition duration-200 text-lg flex items-center gap-3
+                            ${activeView === 'caseComment' ? 'bg-blue-600 text-white shadow-lg transform scale-105' : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'}
+                          `}
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                          New Case Comment
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </aside>
+
+                {/* Middle Container (Main Content) */}
+                <main className="flex-1 min-h-[calc(100vh-180px)] lg:min-h-[calc(100vh-140px)]">
+                  {renderContent()}
+                </main>
+              </div>
+            </div>
+          );
+        }
+
+        /**
+         * ClaimsDashboardPage Component (for Claims Team)
+         * The main dashboard interface after successful Claims Team login.
+         * Manages views for listing requests and replying to them.
+         * @param {object} props - Component props
+         * @param {string} props.username - The logged-in Claims officer's username
+         * @param {function} props.onLogout - Callback function to handle Claims logout
+         */
+        function ClaimsDashboardPage({ username, onLogout }) {
+            const [activeView, setActiveView] = useState('viewRequests'); // 'viewRequests', 'replyToRequest', 'submissionSuccess'
+            const [selectedRequestId, setSelectedRequestId] = useState(null);
+            const [submissionSuccessMessage, setSubmissionSuccessMessage] = useState('');
+
+            const handleReplyClick = (requestId) => {
+                setSelectedRequestId(requestId);
+                setActiveView('replyToRequest');
+            };
+
+            const handleSubmitReplySuccess = (message) => {
+                setSubmissionSuccessMessage(message);
+                setActiveView('submissionSuccess');
+            };
+
+            const handleBackToRequests = () => {
+                setActiveView('viewRequests');
+                setSubmissionSuccessMessage('');
+                setSelectedRequestId(null);
+            };
+
+            const renderClaimsContent = () => {
+                switch (activeView) {
+                    case 'viewRequests':
+                        return <ClaimsRequestsView onReply={handleReplyClick} />;
+                    case 'replyToRequest':
+                        return <ReplyToRequestForm requestId={selectedRequestId} onSubmitReply={handleSubmitReplySuccess} onBack={handleBackToRequests} />;
+                    case 'submissionSuccess':
+                        return (
+                            <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col items-center justify-center text-center">
+                                <svg className="w-32 h-32 text-green-500 mb-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <h3 className="text-4xl font-bold text-gray-800 mb-4">{submissionSuccessMessage}</h3>
+                                <p className="text-gray-600 text-lg mb-8">The request has been updated.</p>
+                                <button
+                                    onClick={handleBackToRequests}
+                                    className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
+                                >
+                                    Back to Requests
+                                </button>
+                            </div>
+                        );
+                    default:
+                        return <ClaimsRequestsView onReply={handleReplyClick} />;
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex flex-col font-sans">
+                    {/* Header for Claims Portal */}
+                    <header className="bg-purple-800 text-white p-5 shadow-lg flex justify-between items-center z-10">
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide">Claims Portal</h1>
+                        <div className="flex items-center space-x-4">
+                            <span className="text-sm sm:text-base hidden md:block text-purple-200">Logged in as: <span className="font-semibold text-white">{username}</span></span>
+                            <button
+                                onClick={onLogout}
+                                className="bg-purple-700 hover:bg-purple-900 text-white text-sm sm:text-base font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-md hover:shadow-lg active:scale-95"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Content Area */}
+                    <div className="flex flex-1 flex-col lg:flex-row p-6 gap-6">
+                        {/* Claims specific navigation - simpler for now */}
+                        <aside className="bg-white rounded-xl shadow-xl p-6 lg:w-1/4 w-full lg:max-h-[calc(100vh-140px)] overflow-y-auto">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5 border-b-2 border-purple-200 pb-4">Claims Actions</h2>
+                            <nav>
+                                <ul className="space-y-4">
+                                    <li>
+                                        <button
+                                            onClick={() => handleBackToRequests()} // Always go back to view all requests
+                                            className={`w-full text-left p-4 rounded-lg font-medium transition duration-200 text-lg flex items-center gap-3
+                                                ${activeView === 'viewRequests' ? 'bg-purple-600 text-white shadow-lg transform scale-105' : 'text-gray-700 hover:bg-purple-50 hover:text-purple-700'}
+                                            `}
+                                        >
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                                            View All Requests
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
+                        </aside>
+
+                        {/* Claims main content */}
+                        <main className="flex-1 min-h-[calc(100vh-180px)] lg:min-h-[calc(100vh-140px)]">
+                            {renderClaimsContent()}
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+
+        /**
+         * TlDashboardPage Component (for Team Lead)
+         * The dashboard for the Team Lead, allowing them to view all requests and assign them.
+         * @param {object} props - Component props
+         * @param {string} props.username - The logged-in Team Lead's username
+         * @param {function} props.onLogout - Callback function to handle TL logout
+         */
+        function TlDashboardPage({ username, onLogout }) {
+            const [requests, setRequests] = useState(allRequests);
+            const [message, setMessage] = useState('');
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setRequests([...allRequests]); // Keep requests updated
+                }, 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            const handleAssign = (requestId, officerName) => {
+                updateRequestInMockStore(requestId, { assignedTo: officerName });
+                setMessage(`Request ${requestId} assigned to ${officerName || 'Unassigned'} successfully!`);
+                setTimeout(() => setMessage(''), 3000); // Clear message after 3 seconds
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-teal-100 flex flex-col font-sans">
+                    {/* Header for TL Portal */}
+                    <header className="bg-teal-800 text-white p-5 shadow-lg flex justify-between items-center z-10">
+                        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide">Team Lead Portal</h1>
+                        <div className="flex items-center space-x-4">
+                            <span className="text-sm sm:text-base hidden md:block text-teal-200">Logged in as: <span className="font-semibold text-white">{username}</span></span>
+                            <button
+                                onClick={onLogout}
+                                className="bg-teal-700 hover:bg-teal-900 text-white text-sm sm:text-base font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-md hover:shadow-lg active:scale-95"
+                            >
+                                Logout
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Content Area */}
+                    <div className="flex flex-1 flex-col p-6 gap-6">
+                        <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
+                            <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-teal-200 pb-4">Manage All Requests</h3>
+                            {message && (
+                                <div className="bg-green-100 border border-green-400 text-green-700 px-5 py-3 rounded-lg relative mb-6 animate-pulse" role="alert">
+                                    <span className="block sm:inline">{message}</span>
+                                </div>
+                            )}
+                            {requests.length === 0 ? (
+                                <p className="text-gray-600 text-lg py-10 text-center">No requests available for management.</p>
+                            ) : (
+                                <div className="overflow-x-auto flex-grow">
+                                    <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
+                                        <thead className="bg-teal-600 text-white">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Request ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Customer Name</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Date</th>
+                                                <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Assigned To</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {requests.map((request, index) => (
+                                                <tr key={request.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-teal-50 transition duration-150 ease-in-out`}>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.customerName}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.type}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm ${
+                                                          request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
+                                                          request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
+                                                          request.status === 'Resolved' ? 'bg-green-100 text-green-800' :
+                                                          request.status === 'Pending Documents' ? 'bg-red-100 text-red-800' :
+                                                          'bg-gray-100 text-gray-800'
+                                                        }`}>
+                                                          {request.status}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.date}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                        <select
+                                                            value={request.assignedTo || 'Unassigned'}
+                                                            onChange={(e) => handleAssign(request.id, e.target.value === 'Unassigned' ? null : e.target.value)}
+                                                            className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 sm:text-sm transition duration-150 ease-in-out bg-white"
+                                                        >
+                                                            <option value="Unassigned">Unassigned</option>
+                                                            {mockClaimsOfficers.map(officer => (
+                                                                <option key={officer} value={officer}>{officer}</option>
+                                                            ))}
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+
+        /**
+         * App Component
+         * The root component that manages the overall application state (login status and portal selection).
+         * Renders either the LoginPage/DashboardPage for CS or Claims based on user's choice.
+         */
+        function App() {
+          const [portalType, setPortalType] = useState(null); // 'cs', 'claims', or 'tl'
+          const [loggedInUser, setLoggedInUser] = useState(null); // For CS Officer
+          const [loggedInClaimsUser, setLoggedInClaimsUser] = useState(null); // For Claims Team
+          const [loggedInTlUser, setLoggedInTlUser] = useState(null); // For Team Lead
+
+          // Check for logged-in user in localStorage on initial load
+          useEffect(() => {
+            const storedCSUser = localStorage.getItem('cs_portal_user');
+            const storedClaimsUser = localStorage.getItem('claims_portal_user');
+            const storedTlUser = localStorage.getItem('tl_portal_user');
+
+            if (storedCSUser) {
+              setLoggedInUser(storedCSUser);
+              setPortalType('cs');
+            } else if (storedClaimsUser) {
+              setLoggedInClaimsUser(storedClaimsUser);
+              setPortalType('claims');
+            } else if (storedTlUser) {
+              setLoggedInTlUser(storedTlUser);
+              setPortalType('tl');
+            }
+          }, []);
+
+          // Handles CS login
+          const handleCSLogin = (username) => {
+            setLoggedInUser(username);
+            setPortalType('cs');
+            localStorage.setItem('cs_portal_user', username);
+            localStorage.removeItem('claims_portal_user');
+            localStorage.removeItem('tl_portal_user');
+          };
+
+          // Handles Claims login
+          const handleClaimsLogin = (username) => {
+            setLoggedInClaimsUser(username);
+            setPortalType('claims');
+            localStorage.setItem('claims_portal_user', username);
+            localStorage.removeItem('cs_portal_user');
+            localStorage.removeItem('tl_portal_user');
+          };
+
+          // Handles TL login
+          const handleTlLogin = (username) => {
+            setLoggedInTlUser(username);
+            setPortalType('tl');
+            localStorage.setItem('tl_portal_user', username);
+            localStorage.removeItem('cs_portal_user');
+            localStorage.removeItem('claims_portal_user');
+          };
+
+          // Handles CS logout
+          const handleCSLogout = () => {
+            setLoggedInUser(null);
+            setPortalType(null);
+            localStorage.removeItem('cs_portal_user');
+          };
+
+          // Handles Claims logout
+          const handleClaimsLogout = () => {
+            setLoggedInClaimsUser(null);
+            setPortalType(null);
+            localStorage.removeItem('claims_portal_user');
+          };
+
+          // Handles TL logout
+          const handleTlLogout = () => {
+            setLoggedInTlUser(null);
+            setPortalType(null);
+            localStorage.removeItem('tl_portal_user');
+          };
+
+
+          // Renders the initial portal selection or the active portal
+          const renderPortal = () => {
+            if (portalType === 'cs') {
+              return loggedInUser ? (
+                <DashboardPage username={loggedInUser} onLogout={handleCSLogout} />
+              ) : (
+                <LoginPage onLogin={handleCSLogin} />
+              );
+            } else if (portalType === 'claims') {
+              return loggedInClaimsUser ? (
+                <ClaimsDashboardPage username={loggedInClaimsUser} onLogout={handleClaimsLogout} />
+              ) : (
+                <ClaimsLoginPage onLogin={handleClaimsLogin} />
+              );
+            } else if (portalType === 'tl') {
+                return loggedInTlUser ? (
+                    <TlDashboardPage username={loggedInTlUser} onLogout={handleTlLogout} />
+                ) : (
+                    <TlLoginPage onLogin={handleTlLogin} />
+                );
+            } else {
+              // Initial selection screen
+              return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 p-4 font-sans">
+                  <div className="bg-white p-12 sm:p-16 rounded-xl shadow-2xl w-full max-w-lg text-center transform transition-transform duration-500 hover:scale-105">
+                    <h2 className="text-4xl font-extrabold text-gray-900 mb-8 tracking-tight">BIMA Service <span className="text-blue-600">Portal</span></h2>
+                    <p className="text-lg text-gray-700 mb-8">Please select which portal you would like to access.</p>
+                    <div className="space-y-6">
+                      <button
+                        onClick={() => setPortalType('cs')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 text-base"
+                      >
+                        Login to CS Portal
+                      </button>
+                      <button
+                        onClick={() => setPortalType('claims')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 text-base"
+                      >
+                        Login to Claims Portal
+                      </button>
+                      <button
+                        onClick={() => setPortalType('tl')}
+                        className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 text-base"
+                      >
+                        Login to Team Lead Portal
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          };
+
+          return (
+            <>
+              {/* No need for Tailwind/Font links here as they are in the HTML head */}
+              {renderPortal()}
+            </>
+          );
+        }
+
+        // Renders the main App component into the 'root' div in the HTML body.
+        // Using ReactDOM.createRoot for React 18+ compatibility for better performance.
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
