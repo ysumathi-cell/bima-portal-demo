@@ -7,7 +7,7 @@
     <!-- Tailwind CSS CDN for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Inter for consistent typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap" rel="stylesheet">
     <!-- React & ReactDOM CDNs for React functionality -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -285,6 +285,7 @@
         function PendingRequests() {
             // Use the global mock data for requests
             const [requests, setRequests] = useState(allRequests);
+            const [nicFilter, setNicFilter] = useState(''); // New state for NIC filter
 
             useEffect(() => {
                 // This effect simulates real-time updates by re-fetching from the mock store
@@ -295,11 +296,32 @@
                 return () => clearInterval(interval);
             }, []);
 
+            // Filter requests based on nicFilter
+            const filteredRequests = requests.filter(request =>
+                request.nic.toLowerCase().includes(nicFilter.toLowerCase())
+            );
+
           return (
             <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
               <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">Pending Requests</h3>
-              {requests.length === 0 ? (
-                <p className="text-gray-600 text-lg py-10 text-center">No pending requests at the moment. Great job!</p>
+
+              {/* NIC Search Input */}
+              <div className="mb-6">
+                  <label htmlFor="nicSearchPending" className="block text-sm font-semibold text-gray-800 mb-2">
+                      Search by Customer NIC
+                  </label>
+                  <input
+                      type="text"
+                      id="nicSearchPending"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
+                      value={nicFilter}
+                      onChange={(e) => setNicFilter(e.target.value)}
+                      placeholder="Filter requests by NIC..."
+                  />
+              </div>
+
+              {filteredRequests.length === 0 ? (
+                <p className="text-gray-600 text-lg py-10 text-center">No pending requests matching your search criteria.</p>
               ) : (
                 <div className="overflow-x-auto flex-grow">
                   <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
@@ -316,7 +338,7 @@
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {requests.map((request, index) => (
+                      {filteredRequests.map((request, index) => (
                         <tr key={request.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition duration-150 ease-in-out`}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.customerName}</td>
