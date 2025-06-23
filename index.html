@@ -48,7 +48,7 @@
         // --- Mock Data Store (for demonstration purposes only) ---
         // In a real application, this data would come from a backend database.
         let allRequests = [
-            // Added externalClaimId to REQ001 for demonstration of new functionality
+            // externalClaimId can now be set by Claims Officer
             { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: null, externalClaimId: 'EXT-HP-001' },
             { id: 'REQ002', customerName: 'Bob Johnson', nic: '859876543V', type: 'Case Comment', comment: 'Customer inquiring about warranty status.', claimId: 'CLI456', status: 'Open', date: '2024-06-19', history: [], assignedTo: null },
             { id: 'REQ003', customerName: 'Charlie Brown', nic: '923456789V', type: 'Claim Intimation', product: 'B-Care', remark: 'Phone battery draining fast', status: 'Pending Documents', date: '2024-06-18', history: [], assignedTo: 'Claims Officer B', externalClaimId: 'CARE-B-123' },
@@ -545,6 +545,7 @@
             const request = allRequests.find(req => req.id === requestId);
             const [replyComment, setReplyComment] = useState('');
             const [newStatus, setNewStatus] = useState(request?.status || '');
+            const [externalClaimId, setExternalClaimId] = useState(request?.externalClaimId || ''); // New state for external Claim ID
 
             if (!request) {
                 return (
@@ -570,7 +571,11 @@
                         timestamp: new Date().toISOString()
                     }
                 ];
-                updateRequestInMockStore(requestId, { history: updatedHistory, status: newStatus });
+                updateRequestInMockStore(requestId, {
+                    history: updatedHistory,
+                    status: newStatus,
+                    externalClaimId: externalClaimId // Update the external Claim ID
+                });
                 onSubmitReply(`Reply to ${requestId} submitted successfully!`);
                 setReplyComment('');
             };
@@ -595,8 +600,8 @@
                         {request.product && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Product:</span> {request.product}</p>}
                         {request.remark && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Remark:</span> {request.remark}</p>}
                         {request.comment && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">CS Comment:</span> {request.comment}</p>}
-                        {request.claimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Related Claim ID:</span> {request.claimId}</p>}
-                        {request.externalClaimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">External Claim ID:</span> {request.externalClaimId}</p>} {/* Display External Claim ID */}
+                        {request.claimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Related Claim ID (from CS):</span> {request.claimId}</p>}
+                        {request.externalClaimId && <p className="text-gray-800 text-base mb-2"><span className="font-semibold">External Claim ID:</span> {request.externalClaimId}</p>}
                         <p className="text-gray-800 text-base mb-2"><span className="font-semibold">Current Status:</span> <span className={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full shadow-sm ${
                           request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
                           request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
@@ -629,6 +634,20 @@
 
                     {/* Reply Form */}
                     <form onSubmit={handleSubmitReply} className="space-y-6">
+                        {/* New External Claim ID field in Claims Portal */}
+                        <div>
+                            <label htmlFor="claimsExternalClaimId" className="block text-sm font-semibold text-gray-800 mb-2">
+                                External Claim ID (Optional)
+                            </label>
+                            <input
+                                type="text"
+                                id="claimsExternalClaimId"
+                                className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-purple-300 focus:border-purple-500 transition duration-300 placeholder-gray-500"
+                                value={externalClaimId}
+                                onChange={(e) => setExternalClaimId(e.target.value)}
+                                placeholder="Enter external claim identifier (if any)"
+                            />
+                        </div>
                         <div>
                             <label htmlFor="replyComment" className="block text-sm font-semibold text-gray-800 mb-2">
                                 Your Reply / Comment
@@ -686,7 +705,7 @@
           const [nic, setNic] = useState('');
           const [product, setProduct] = useState('');
           const [remark, setRemark] = useState('');
-          const [externalClaimId, setExternalClaimId] = useState(''); // New state for external Claim ID
+          // Removed externalClaimId from here as per user request
 
           const handleSubmit = (e) => {
             e.preventDefault();
@@ -701,8 +720,8 @@
                 status: 'Pending Review',
                 date: new Date().toISOString().slice(0, 10), //YYYY-MM-DD
                 history: [{ author: 'CS Officer', comment: remark || 'Initial claim intimation', timestamp: new Date().toISOString() }],
-                assignedTo: null, // New claims are unassigned by default
-                externalClaimId: externalClaimId // Include the new externalClaimId
+                assignedTo: null // New claims are unassigned by default
+                // externalClaimId is no longer added here
             };
             allRequests.push(newRequest); // Add to mock store
             console.log('New Claim Intimation Added:', newRequest);
@@ -712,7 +731,6 @@
             setNic('');
             setProduct('');
             setRemark('');
-            setExternalClaimId(''); // Clear external claim ID field
           };
 
           return (
@@ -777,19 +795,7 @@
                     placeholder="Add any relevant remarks about the claim"
                   ></textarea>
                 </div>
-                <div>
-                  <label htmlFor="externalClaimId" className="block text-sm font-semibold text-gray-800 mb-2">
-                    External Claim ID (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    id="externalClaimId"
-                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 text-gray-800 leading-tight focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 transition duration-300 placeholder-gray-500"
-                    value={externalClaimId}
-                    onChange={(e) => setExternalClaimId(e.target.value)}
-                    placeholder="Enter an optional external claim identifier"
-                  />
-                </div>
+                {/* Removed External Claim ID field from CS Claim Intimation Form */}
                 <button
                   type="submit"
                   className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
@@ -1135,7 +1141,7 @@
                             {item.comment && <p className="text-sm text-gray-700 mb-1">Comment: {item.comment}</p>}
                             {item.remark && <p className="text-sm text-gray-700 mb-1">Remark: {item.remark}</p>}
                             {item.assignedTo && <p className="text-sm text-gray-700 mb-1">Assigned To: {item.assignedTo}</p>}
-                            {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>} {/* Display External Claim ID */}
+                            {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>}
                             {item.history && item.history.length > 0 && (
                                 <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                     <span className="font-semibold">Latest Update: </span>
@@ -1231,7 +1237,7 @@
                                                 {item.nic && <p className="text-sm text-gray-700 mb-1">NIC: {item.nic}</p>}
                                                 {item.comment && <p className="text-sm text-gray-700 mb-1">Comment: {item.comment}</p>}
                                                 {item.assignedTo && <p className="text-sm text-gray-700 mb-1">Assigned To: {item.assignedTo}</p>}
-                                                {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>} {/* Display External Claim ID */}
+                                                {item.externalClaimId && <p className="text-sm text-gray-700 mb-1">External Claim ID: {item.externalClaimId}</p>}
                                                 {item.history && item.history.length > 0 && (
                                                     <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                                         <span className="font-semibold">Latest Update: </span>
