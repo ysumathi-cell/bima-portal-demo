@@ -34,6 +34,21 @@
       ::-webkit-scrollbar-thumb:hover {
           background: #555;
       }
+      /* Simple arrow for sort indicator */
+      .sort-arrow {
+          display: inline-block;
+          margin-left: 5px;
+          width: 0;
+          height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+      }
+      .sort-asc {
+          border-bottom: 5px solid white;
+      }
+      .sort-desc {
+          border-top: 5px solid white;
+      }
     </style>
 </head>
 <body>
@@ -49,16 +64,21 @@
         // In a real application, this data would come from a backend database.
         let allRequests = [
             // externalClaimId can now be set by Claims Officer
-            { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: null, externalClaimId: 'EXT-HP-001' },
-            { id: 'REQ002', customerName: 'Bob Johnson', nic: '859876543V', type: 'Case Comment', comment: 'Customer inquiring about warranty status.', claimId: 'CLI456', status: 'Open', date: '2024-06-19', history: [], assignedTo: null },
+            { id: 'REQ001', customerName: 'Alice Smith', nic: '781234567V', type: 'Claim Intimation', product: 'HP', remark: 'Laptop screen damaged', status: 'Pending Review', date: '2024-06-20', history: [], assignedTo: 'Claims Officer A', externalClaimId: 'EXT-HP-001' },
+            { id: 'REQ002', customerName: 'Bob Johnson', nic: '859876543V', type: 'Case Comment', comment: 'Customer inquiring about warranty status.', claimId: 'CLI456', status: 'Open', date: '2024-06-19', history: [], assignedTo: 'Claims Officer B' },
             { id: 'REQ003', customerName: 'Charlie Brown', nic: '923456789V', type: 'Claim Intimation', product: 'B-Care', remark: 'Phone battery draining fast', status: 'Pending Documents', date: '2024-06-18', history: [], assignedTo: 'Claims Officer B', externalClaimId: 'CARE-B-123' },
             { id: 'REQ004', customerName: 'Diana Prince', nic: '654321098V', type: 'Case Comment', comment: 'Follow-up on product issue for REQ001.', claimId: 'REQ001', status: 'Resolved', date: '2024-06-17', history: [{ author: 'CS Officer', comment: 'Initial query', timestamp: '2024-06-17T10:00:00Z' }], assignedTo: 'Claims Officer A' },
-            { id: 'REQ005', customerName: 'Eve Davis', nic: '765432109V', type: 'Claim Intimation', product: 'HP', remark: 'Printer not connecting to Wi-Fi', status: 'Open', date: '2024-06-21', history: [], assignedTo: null },
+            { id: 'REQ005', customerName: 'Eve Davis', nic: '765432109V', type: 'Claim Intimation', product: 'HP', remark: 'Printer not connecting to Wi-Fi', status: 'Open', date: '2024-06-21', history: [], assignedTo: 'Claims Officer C' },
+            { id: 'REQ006', customerName: 'Frank Green', nic: '777654321V', type: 'Claim Intimation', product: 'B-Care', remark: 'Screen crack on phone', status: 'In Progress', date: '2024-06-22', history: [], assignedTo: 'Claims Officer A' },
+            { id: 'REQ007', customerName: 'Grace Hall', nic: '888123456V', type: 'Case Comment', comment: 'Request for document upload.', claimId: 'CARE-B-123', status: 'Pending Documents', date: '2024-06-23', history: [], assignedTo: 'Claims Officer B' },
+            { id: 'REQ008', customerName: 'Henry King', nic: '999012345V', type: 'Claim Intimation', product: 'HP Pro', remark: 'Software issue with new laptop', status: 'Pending Review', date: '2024-06-24', history: [], assignedTo: null },
         ];
 
         // Mock list of Claims Officers for assignment
         const mockClaimsOfficers = ['Claims Officer A', 'Claims Officer B', 'Claims Officer C'];
 
+        // Possible statuses for requests
+        const requestStatuses = ['Pending Review', 'Open', 'In Progress', 'Pending Documents', 'Resolved', 'Closed'];
 
         /**
          * Function to simulate updating a request in the mock data store.
@@ -153,9 +173,27 @@
           const [error, setError] = useState('');
 
           const handleLogin = () => {
-            // Mock authentication for Claims Team: 'claims_officer' / 'claims123'
+            // Mock authentication for Claims Team
+            // Admin: 'claims_officer' / 'claims123' (views all claims)
+            // Individual Officers: 'officer_A' / 'passA', 'officer_B' / 'passB', 'officer_C' / 'passC' (views assigned claims)
+            let userRole = null;
+            let assignedOfficerName = null; // Used for individual officer role to filter claims
+
             if (username === 'claims_officer' && password === 'claims123') {
-              onLogin(username);
+              userRole = 'admin';
+            } else if (username === 'officer_A' && password === 'passA') {
+              userRole = 'officer';
+              assignedOfficerName = 'Claims Officer A';
+            } else if (username === 'officer_B' && password === 'passB') {
+              userRole = 'officer';
+              assignedOfficerName = 'Claims Officer B';
+            } else if (username === 'officer_C' && password === 'passC') {
+              userRole = 'officer';
+              assignedOfficerName = 'Claims Officer C';
+            }
+
+            if (userRole) {
+              onLogin(username, userRole, assignedOfficerName);
             } else {
               setError('Invalid username or password. Please try again.');
             }
@@ -385,7 +423,7 @@
             }
             let stringValue = String(value);
             // If the value contains a comma, double quote, or newline, enclose it in double quotes
-            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+                        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
                 // Escape existing double quotes by doubling them
                 stringValue = stringValue.replace(/"/g, '""');
                 return `"${stringValue}"`;
@@ -453,67 +491,266 @@
          * Includes a button to download all requests as a CSV report.
          * @param {object} props - Component props
          * @param {function} props.onReply - Callback function when a claims officer wants to reply to a request
+         * @param {string} props.claimsRole - The role of the logged-in user ('admin' or 'officer')
+         * @param {string} props.loggedInAssignedOfficerName - The name of the officer if claimsRole is 'officer'
          */
-        function ClaimsRequestsView({ onReply }) {
+        function ClaimsRequestsView({ onReply, claimsRole, loggedInAssignedOfficerName }) {
             const [requests, setRequests] = useState(allRequests);
+            const [statusFilter, setStatusFilter] = useState('');
+            const [productFilter, setProductFilter] = useState('');
+            const [assignedToFilter, setAssignedToFilter] = useState('');
+            const [customerSearchTerm, setCustomerSearchTerm] = useState(''); // Combined for name and NIC
+            const [sortColumn, setSortColumn] = useState('date');
+            const [sortDirection, setSortDirection] = useState('desc'); // 'asc' or 'desc'
 
             useEffect(() => {
                 // Simulate real-time updates from the mock data store
+                // Also re-applies filters and sorts when the base data changes
                 const interval = setInterval(() => {
                     setRequests([...allRequests]); // Force update
                 }, 1000);
                 return () => clearInterval(interval);
             }, []);
 
+            // Handle sorting logic
+            const handleSort = (column) => {
+                if (sortColumn === column) {
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                    setSortColumn(column);
+                    setSortDirection('asc');
+                }
+            };
+
+            // Filter and sort requests
+            const filteredAndSortedRequests = React.useMemo(() => {
+                let currentRequests = [...requests];
+
+                // Apply role-based filtering first
+                if (claimsRole === 'officer' && loggedInAssignedOfficerName) {
+                    currentRequests = currentRequests.filter(req => req.assignedTo === loggedInAssignedOfficerName);
+                }
+
+                // Apply user-selected filters
+                if (statusFilter) {
+                    currentRequests = currentRequests.filter(req => req.status === statusFilter);
+                }
+                if (productFilter) {
+                    currentRequests = currentRequests.filter(req => req.product === productFilter);
+                }
+                if (assignedToFilter) {
+                    // Only apply if user is admin or if an officer is filtering for their own assigned claims
+                    if (claimsRole === 'admin' || (claimsRole === 'officer' && assignedToFilter === loggedInAssignedOfficerName)) {
+                         currentRequests = currentRequests.filter(req => req.assignedTo === assignedToFilter);
+                    }
+                }
+                if (customerSearchTerm) {
+                    currentRequests = currentRequests.filter(req =>
+                        req.customerName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+                        req.nic.toLowerCase().includes(customerSearchTerm.toLowerCase())
+                    );
+                }
+
+                // Apply sorting
+                currentRequests.sort((a, b) => {
+                    let valA = a[sortColumn];
+                    let valB = b[sortColumn];
+
+                    if (sortColumn === 'date') {
+                        valA = new Date(a.date);
+                        valB = new Date(b.date);
+                    }
+
+                    if (valA < valB) {
+                        return sortDirection === 'asc' ? -1 : 1;
+                    }
+                    if (valA > valB) {
+                        return sortDirection === 'asc' ? 1 : -1;
+                    }
+                    return 0;
+                });
+
+                return currentRequests;
+            }, [requests, statusFilter, productFilter, assignedToFilter, customerSearchTerm, sortColumn, sortDirection, claimsRole, loggedInAssignedOfficerName]);
+
+            const handleQuickStatusChange = (requestId, newStatus) => {
+                updateRequestInMockStore(requestId, { status: newStatus });
+            };
+
+            const handleAssignClaimsOfficer = (requestId, officerName) => {
+                updateRequestInMockStore(requestId, { assignedTo: officerName });
+            };
+
+
             return (
                 <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
                     <div className="flex justify-between items-center mb-6 border-b-2 border-purple-200 pb-4">
                         <h3 className="text-3xl font-bold text-gray-800">All Customer Requests</h3>
-                        <button
-                            onClick={() => downloadCSVReport(requests)}
-                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-base"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                            Download Report (CSV)
-                        </button>
+                        {claimsRole === 'admin' && ( // Only show download report for admin
+                            <button
+                                onClick={() => downloadCSVReport(requests)}
+                                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 px-5 rounded-lg shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95 flex items-center gap-2 text-base"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                Download Report (CSV)
+                            </button>
+                        )}
                     </div>
 
-                    {requests.length === 0 ? (
-                        <p className="text-gray-600 text-lg py-10 text-center">No requests available at the moment.</p>
+                    {/* Filtering Options */}
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label htmlFor="customerSearch" className="block text-sm font-semibold text-gray-700 mb-1">Customer/NIC</label>
+                            <input
+                                type="text"
+                                id="customerSearch"
+                                className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                placeholder="Search name or NIC"
+                                value={customerSearchTerm}
+                                onChange={(e) => setCustomerSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="statusFilter" className="block text-sm font-semibold text-gray-700 mb-1">Status</label>
+                            <select
+                                id="statusFilter"
+                                className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                            >
+                                <option value="">All Statuses</option>
+                                {requestStatuses.map(status => (
+                                    <option key={status} value={status}>{status}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* Product filter always available */}
+                        <div>
+                            <label htmlFor="productFilter" className="block text-sm font-semibold text-gray-700 mb-1">Product</label>
+                            <select
+                                id="productFilter"
+                                className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                value={productFilter}
+                                onChange={(e) => setProductFilter(e.target.value)}
+                            >
+                                <option value="">All Products</option>
+                                <option value="HP">HP</option>
+                                <option value="HP Pro">HP Pro</option>
+                                <option value="B-Care">B-Care</option>
+                            </select>
+                        </div>
+                        {/* Assigned To filter visible for admin, or for officer to see their own if already applied */}
+                        {claimsRole === 'admin' && (
+                            <div>
+                                <label htmlFor="assignedToFilter" className="block text-sm font-semibold text-gray-700 mb-1">Assigned To</label>
+                                <select
+                                    id="assignedToFilter"
+                                    className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                    value={assignedToFilter}
+                                    onChange={(e) => setAssignedToFilter(e.target.value)}
+                                >
+                                    <option value="">All Officers</option>
+                                    <option value="Unassigned">Unassigned</option>
+                                    {mockClaimsOfficers.map(officer => (
+                                        <option key={officer} value={officer}>{officer}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        {/* For individual officers, their assigned filter is implicitly applied and not selectable */}
+                        {claimsRole === 'officer' && (
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Assigned To</label>
+                                <input
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 text-gray-800 bg-gray-100 cursor-not-allowed"
+                                    value={loggedInAssignedOfficerName}
+                                    readOnly
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {filteredAndSortedRequests.length === 0 ? (
+                        <p className="text-gray-600 text-lg py-10 text-center">No requests matching your criteria.</p>
                     ) : (
                         <div className="overflow-x-auto flex-grow">
                             <table className="min-w-full divide-y divide-gray-200 rounded-lg overflow-hidden">
                                 <thead className="bg-purple-600 text-white">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg">Request ID</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Customer Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Product</th> {/* Added Product Column */}
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Assigned To</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Action</th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tl-lg cursor-pointer" onClick={() => handleSort('id')}>
+                                            Request ID
+                                            {sortColumn === 'id' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('customerName')}>
+                                            Customer Name
+                                            {sortColumn === 'customerName' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('type')}>
+                                            Type
+                                            {sortColumn === 'type' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('product')}>
+                                            Product
+                                            {sortColumn === 'product' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('status')}>
+                                            Status
+                                            {sortColumn === 'status' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('assignedTo')}>
+                                            Assigned To
+                                            {sortColumn === 'assignedTo' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer" onClick={() => handleSort('date')}>
+                                            Date
+                                            {sortColumn === 'date' && <span className={`sort-arrow ${sortDirection === 'asc' ? 'sort-asc' : 'sort-desc'}`}></span>}
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider rounded-tr-lg">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {requests.map((request, index) => (
+                                    {filteredAndSortedRequests.map((request, index) => (
                                         <tr key={request.id} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-purple-50 transition duration-150 ease-in-out`}>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{request.id}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.customerName}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.type}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.product || 'N/A'}</td> {/* Display Product */}
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.product || 'N/A'}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full shadow-sm ${
-                                                  request.status === 'Pending Review' ? 'bg-yellow-100 text-yellow-800' :
-                                                  request.status === 'Open' ? 'bg-blue-100 text-blue-800' :
-                                                  request.status === 'Resolved' ? 'bg-green-100 text-green-800' :
-                                                  request.status === 'Pending Documents' ? 'bg-red-100 text-red-800' :
-                                                  'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                  {request.status}
-                                                </span>
+                                                {/* Quick Status Update Dropdown */}
+                                                <select
+                                                    value={request.status}
+                                                    onChange={(e) => handleQuickStatusChange(request.id, e.target.value)}
+                                                    className={`block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-xs focus:outline-none focus:ring-2 sm:text-sm transition duration-150 ease-in-out bg-white ${
+                                                      request.status === 'Pending Review' ? 'text-yellow-800 border-yellow-300' :
+                                                      request.status === 'Open' ? 'text-blue-800 border-blue-300' :
+                                                      request.status === 'Resolved' ? 'text-green-800 border-green-300' :
+                                                      request.status === 'Pending Documents' ? 'text-red-800 border-red-300' :
+                                                      'text-gray-800 border-gray-300'
+                                                    }`}
+                                                >
+                                                    {requestStatuses.map(status => (
+                                                        <option key={status} value={status}>{status}</option>
+                                                    ))}
+                                                </select>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.assignedTo || 'Unassigned'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                                {/* Quick Assign Officer Dropdown - Admin can assign to anyone, Officer can only see dropdown for their assigned claims*/}
+                                                {(claimsRole === 'admin' || request.assignedTo === loggedInAssignedOfficerName) ? (
+                                                    <select
+                                                        value={request.assignedTo || 'Unassigned'}
+                                                        onChange={(e) => handleAssignClaimsOfficer(request.id, e.target.value === 'Unassigned' ? null : e.target.value)}
+                                                        className="block w-full border border-gray-300 rounded-md shadow-sm py-1 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 sm:text-sm transition duration-150 ease-in-out bg-white"
+                                                    >
+                                                        <option value="Unassigned">Unassigned</option>
+                                                        {mockClaimsOfficers.map(officer => (
+                                                            <option key={officer} value={officer}>{officer}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-gray-700">{request.assignedTo || 'Unassigned'}</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{request.date}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button
@@ -622,7 +859,10 @@
                                 {request.history.map((entry, index) => (
                                     <div key={index} className="border-b border-gray-100 pb-3 last:border-b-0">
                                         <p className="text-sm text-gray-900 font-medium flex justify-between items-center">
-                                            <span>{entry.author}</span>
+                                            <span>
+                                                {entry.isInternal ? <span className="font-bold text-red-600">[INTERNAL] </span> : ''}
+                                                {entry.author}
+                                            </span>
                                             <span className="text-gray-500 text-xs">{new Date(entry.timestamp).toLocaleString()}</span>
                                         </p>
                                         <p className="text-gray-700 text-base italic mt-1">{entry.comment}</p>
@@ -951,6 +1191,7 @@
         function AddCommentToRequestForm({ onSubmit, onBack }) {
             const [selectedRequestId, setSelectedRequestId] = useState('');
             const [comment, setComment] = useState('');
+            const [isInternalNote, setIsInternalNote] = useState(false); // New state for internal note
             const [filteredRequests, setFilteredRequests] = useState([]);
             const [nicSearch, setNicSearch] = useState('');
 
@@ -975,18 +1216,21 @@
 
                 const request = allRequests.find(req => req.id === selectedRequestId);
                 if (request) {
+                    const newCommentAuthor = isInternalNote ? 'CS Internal Note' : 'CS Officer';
                     const updatedHistory = [
                         ...(request.history || []),
                         {
-                            author: 'CS Officer', // This would be dynamic in a real app (e.g., from logged-in user context)
+                            author: newCommentAuthor,
                             comment: comment,
-                            timestamp: new Date().toISOString()
+                            timestamp: new Date().toISOString(),
+                            isInternal: isInternalNote // Flag for internal notes
                         }
                     ];
                     updateRequestInMockStore(selectedRequestId, { history: updatedHistory });
                     onSubmit(`Comment added to Request ${selectedRequestId} successfully!`);
                     setSelectedRequestId('');
                     setComment('');
+                    setIsInternalNote(false); // Reset checkbox
                     setNicSearch('');
                     setFilteredRequests([]);
                 } else {
@@ -1056,6 +1300,18 @@
                                 required
                             ></textarea>
                         </div>
+                        <div className="flex items-center mb-4">
+                            <input
+                                id="isInternalNote"
+                                type="checkbox"
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                checked={isInternalNote}
+                                onChange={(e) => setIsInternalNote(e.target.checked)}
+                            />
+                            <label htmlFor="isInternalNote" className="ml-2 block text-sm text-gray-900">
+                                Mark as Internal Note (Not visible to customer)
+                            </label>
+                        </div>
                         <button
                             type="submit"
                             className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold py-3 px-4 rounded-lg shadow-lg hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-offset-2 transition duration-300 transform hover:scale-105 active:scale-95"
@@ -1072,8 +1328,9 @@
          * Provides a search interface for customer requests by NIC.
          * Displays mock search results after a simulated delay.
          * @param {object} props - Component props
+         * @param {function} props.onBack - Callback to navigate back
          */
-        function SearchByNic() {
+        function SearchByNic({ onBack }) {
           const [nic, setNic] = useState('');
           const [searchResults, setSearchResults] = useState(null); // null, 'loading', or {data: [...]}
 
@@ -1083,20 +1340,53 @@
             // Mock search: In a real application, you'd fetch data from your backend
             setTimeout(() => {
               const results = allRequests.filter(req => req.nic.toLowerCase().includes(nic.toLowerCase()));
+
+              // Calculate customer profile overview
+              let totalRequests = 0;
+              let openPendingRequests = 0;
+              let lastInteractionDate = null;
+
               if (results.length > 0) {
+                totalRequests = results.length;
+                openPendingRequests = results.filter(req => ['Open', 'Pending Review', 'In Progress', 'Pending Documents'].includes(req.status)).length;
+                
+                // Determine the most recent date from all requests for this NIC
+                const allDates = results.map(req => new Date(req.date)); // Use initial request date
+                results.forEach(req => {
+                    if (req.history && req.history.length > 0) {
+                        req.history.forEach(hist => {
+                            allDates.push(new Date(hist.timestamp));
+                        });
+                    }
+                });
+                lastInteractionDate = allDates.length > 0 ? new Date(Math.max(...allDates)).toLocaleDateString() : null;
+
                 setSearchResults({
                   data: results,
-                  customerName: results[0].customerName
+                  customerName: results[0].customerName,
+                  profile: {
+                      totalRequests,
+                      openPendingRequests,
+                      lastInteractionDate
+                  }
                 });
               } else {
-                setSearchResults({ data: [], customerName: null }); // No results found
+                setSearchResults({ data: [], customerName: null, profile: null }); // No results found
               }
             }, 1000); // Simulate API call delay
           };
 
           return (
             <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
-              <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-blue-200 pb-4">Search by Customer NIC</h3>
+              <div className="flex justify-between items-center mb-6 border-b-2 border-blue-200 pb-4">
+                <h3 className="text-3xl font-bold text-gray-800">Search by Customer NIC</h3>
+                <button
+                    onClick={onBack}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm transition duration-200 shadow-sm hover:shadow-md"
+                >
+                    Back to Dashboard
+                </button>
+              </div>
               <form onSubmit={handleSearch} className="mb-8">
                 <div className="flex flex-col sm:flex-row gap-4 items-end">
                   <input
@@ -1132,6 +1422,23 @@
                   {searchResults.data.length > 0 ? (
                     <>
                       <h4 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Results for NIC: <span className="text-blue-600">{nic}</span> {searchResults.customerName && `(${searchResults.customerName})`}</h4>
+
+                      {/* Customer Profile Overview */}
+                      {searchResults.profile && (
+                          <div className="bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm mb-6">
+                              <h5 className="text-lg font-semibold text-blue-800 mb-3">Customer Overview:</h5>
+                              <p className="text-gray-700 text-base mb-1">
+                                  <span className="font-medium">Total Requests:</span> {searchResults.profile.totalRequests}
+                              </p>
+                              <p className="text-gray-700 text-base mb-1">
+                                  <span className="font-medium">Open/Pending:</span> {searchResults.profile.openPendingRequests}
+                              </p>
+                              <p className="text-gray-700 text-base">
+                                  <span className="font-medium">Last Interaction:</span> {searchResults.profile.lastInteractionDate || 'N/A'}
+                              </p>
+                          </div>
+                      )}
+
                       <ul className="space-y-4">
                         {searchResults.data.map((item, index) => (
                           <li key={index} className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-md hover:shadow-lg transition duration-200">
@@ -1145,7 +1452,10 @@
                             {item.history && item.history.length > 0 && (
                                 <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                     <span className="font-semibold">Latest Update: </span>
-                                    <p className="italic">{item.history[item.history.length - 1].author}: {item.history[item.history.length - 1].comment}</p>
+                                    <p className="italic">
+                                        {item.history[item.history.length - 1].isInternal ? <span className="font-bold text-red-500">[INTERNAL] </span> : ''}
+                                        {item.history[item.history.length - 1].author}: {item.history[item.history.length - 1].comment}
+                                    </p>
                                     <span className="text-gray-500">{new Date(item.history[item.history.length - 1].timestamp).toLocaleString()}</span>
                                 </div>
                             )}
@@ -1167,8 +1477,9 @@
          * Provides a search interface for requests by Claim ID.
          * Displays mock search results after a simulated delay.
          * @param {object} props - Component props
+         * @param {function} props.onBack - Callback to navigate back
          */
-        function SearchByClaimId() {
+        function SearchByClaimId({ onBack }) {
             const [claimId, setClaimId] = useState('');
             const [searchResults, setSearchResults] = useState(null); // null, 'loading', or {data: [...]}
 
@@ -1192,7 +1503,15 @@
 
             return (
                 <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col">
-                    <h3 className="text-3xl font-bold text-gray-800 mb-6 border-b-2 border-purple-200 pb-4">Search by Claim ID</h3>
+                    <div className="flex justify-between items-center mb-6 border-b-2 border-purple-200 pb-4">
+                        <h3 className="text-3xl font-bold text-gray-800">Search by Claim ID</h3>
+                        <button
+                            onClick={onBack}
+                            className="bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm transition duration-200 shadow-sm hover:shadow-md"
+                        >
+                            Back to Requests
+                        </button>
+                    </div>
                     <form onSubmit={handleSearch} className="mb-8">
                         <div className="flex flex-col sm:flex-row gap-4 items-end">
                             <input
@@ -1241,7 +1560,10 @@
                                                 {item.history && item.history.length > 0 && (
                                                     <div className="mt-3 text-xs text-gray-600 border-t border-gray-100 pt-2">
                                                         <span className="font-semibold">Latest Update: </span>
-                                                        <p className="italic">{item.history[item.history.length - 1].author}: {item.history[item.history.length - 1].comment}</p>
+                                                        <p className="italic">
+                                                            {item.history[item.history.length - 1].isInternal ? <span className="font-bold text-red-500">[INTERNAL] </span> : ''}
+                                                            {item.history[item.history.length - 1].author}: {item.history[item.history.length - 1].comment}
+                                                        </p>
                                                         <span className="text-gray-500">{new Date(item.history[item.history.length - 1].timestamp).toLocaleString()}</span>
                                                     </div>
                                                 )}
@@ -1292,7 +1614,7 @@
               case 'addCommentExisting':
                 return <AddCommentToRequestForm onSubmit={handleFormSubmitSuccess} onBack={handleBackToDashboard} />;
               case 'searchNic':
-                return <SearchByNic />;
+                return <SearchByNic onBack={handleBackToDashboard} />; {/* Added onBack prop */}
               case 'submissionSuccess':
                 return (
                   <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col items-center justify-center text-center">
@@ -1411,9 +1733,11 @@
          * Manages views for listing requests, replying to them, and searching by Claim ID.
          * @param {object} props - Component props
          * @param {string} props.username - The logged-in Claims officer's username
+         * @param {string} props.claimsRole - The role of the logged-in user ('admin' or 'officer')
+         * @param {string} props.loggedInAssignedOfficerName - The name of the officer if claimsRole is 'officer'
          * @param {function} props.onLogout - Callback function to handle Claims logout
          */
-        function ClaimsDashboardPage({ username, onLogout }) {
+        function ClaimsDashboardPage({ username, claimsRole, loggedInAssignedOfficerName, onLogout }) {
             const [activeView, setActiveView] = useState('viewRequests'); // 'viewRequests', 'replyToRequest', 'submissionSuccess', 'searchClaimId'
             const [selectedRequestId, setSelectedRequestId] = useState(null);
             const [submissionSuccessMessage, setSubmissionSuccessMessage] = useState('');
@@ -1437,11 +1761,15 @@
             const renderClaimsContent = () => {
                 switch (activeView) {
                     case 'viewRequests':
-                        return <ClaimsRequestsView onReply={handleReplyClick} />;
+                        return <ClaimsRequestsView
+                                onReply={handleReplyClick}
+                                claimsRole={claimsRole}
+                                loggedInAssignedOfficerName={loggedInAssignedOfficerName}
+                               />;
                     case 'replyToRequest':
                         return <ReplyToRequestForm requestId={selectedRequestId} onSubmitReply={handleSubmitReplySuccess} onBack={handleBackToRequests} />;
                     case 'searchClaimId':
-                        return <SearchByClaimId />;
+                        return <SearchByClaimId onBack={handleBackToRequests} />; {/* Added onBack prop */}
                     case 'submissionSuccess':
                         return (
                             <div className="bg-white p-8 rounded-xl shadow-xl h-full flex flex-col items-center justify-center text-center">
@@ -1459,7 +1787,7 @@
                             </div>
                         );
                     default:
-                        return <ClaimsRequestsView onReply={handleReplyClick} />;
+                        return <ClaimsRequestsView />;
                 }
             };
 
@@ -1469,7 +1797,7 @@
                     <header className="bg-purple-800 text-white p-5 shadow-lg flex justify-between items-center z-10">
                         <h1 className="text-2xl sm:text-3xl font-extrabold tracking-wide">Claims Portal</h1>
                         <div className="flex items-center space-x-4">
-                            <span className="text-sm sm:text-base hidden md:block text-purple-200">Logged in as: <span className="font-semibold text-white">{username}</span></span>
+                            <span className="text-sm sm:text-base hidden md:block text-purple-200">Logged in as: <span className="font-semibold text-white">{username} ({claimsRole === 'admin' ? 'Admin' : 'Officer'})</span></span>
                             <button
                                 onClick={onLogout}
                                 className="bg-purple-700 hover:bg-purple-900 text-white text-sm sm:text-base font-semibold py-2.5 px-5 rounded-lg transition duration-200 shadow-md hover:shadow-lg active:scale-95"
@@ -1494,7 +1822,7 @@
                                             `}
                                         >
                                             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-                                            View All Requests
+                                            View My Requests
                                         </button>
                                     </li>
                                     <li>
@@ -1557,7 +1885,9 @@
                         requestType: assignedRequest.type,
                         requestStatus: assignedRequest.status,
                         assignedTo: officerName,
-                        // officerEmail: 'email_of_assigned_officer@example.com' // You'd dynamically get this
+                        // You'd typically get the officer's email from a database, e.g.:
+                        // officerEmail: getOfficerEmail(officerName)
+                        officerEmail: 'dummy.officer.email@example.com' // Placeholder: REPLACE with actual officer email
                     };
 
                     // Replace 'YOUR_DEPLOYED_WEB_APP_URL' with the actual URL from your Google Apps Script deployment
@@ -1683,20 +2013,26 @@
         function App() {
           const [portalType, setPortalType] = useState(null); // 'cs', 'claims', or 'tl'
           const [loggedInUser, setLoggedInUser] = useState(null); // For CS Officer
-          const [loggedInClaimsUser, setLoggedInClaimsUser] = useState(null); // For Claims Team
+          const [loggedInClaimsUser, setLoggedInClaimsUser] = useState(null); // For Claims Team username (e.g., 'officer_A')
+          const [loggedInClaimsUserRole, setLoggedInClaimsUserRole] = useState(null); // For Claims Team role ('admin' or 'officer')
+          const [loggedInClaimsAssignedName, setLoggedInClaimsAssignedName] = useState(null); // For Claims Officer's actual name for assignments
           const [loggedInTlUser, setLoggedInTlUser] = useState(null); // For Team Lead
 
           // Check for logged-in user in localStorage on initial load
           useEffect(() => {
             const storedCSUser = localStorage.getItem('cs_portal_user');
             const storedClaimsUser = localStorage.getItem('claims_portal_user');
+            const storedClaimsRole = localStorage.getItem('claims_portal_role');
+            const storedClaimsAssignedName = localStorage.getItem('claims_portal_assigned_name');
             const storedTlUser = localStorage.getItem('tl_portal_user');
 
             if (storedCSUser) {
               setLoggedInUser(storedCSUser);
               setPortalType('cs');
-            } else if (storedClaimsUser) {
+            } else if (storedClaimsUser && storedClaimsRole) {
               setLoggedInClaimsUser(storedClaimsUser);
+              setLoggedInClaimsUserRole(storedClaimsRole);
+              setLoggedInClaimsAssignedName(storedClaimsAssignedName);
               setPortalType('claims');
             } else if (storedTlUser) {
               setLoggedInTlUser(storedTlUser);
@@ -1710,14 +2046,20 @@
             setPortalType('cs');
             localStorage.setItem('cs_portal_user', username);
             localStorage.removeItem('claims_portal_user');
+            localStorage.removeItem('claims_portal_role');
+            localStorage.removeItem('claims_portal_assigned_name');
             localStorage.removeItem('tl_portal_user');
           };
 
           // Handles Claims login
-          const handleClaimsLogin = (username) => {
+          const handleClaimsLogin = (username, role, assignedName) => {
             setLoggedInClaimsUser(username);
+            setLoggedInClaimsUserRole(role);
+            setLoggedInClaimsAssignedName(assignedName);
             setPortalType('claims');
             localStorage.setItem('claims_portal_user', username);
+            localStorage.setItem('claims_portal_role', role);
+            localStorage.setItem('claims_portal_assigned_name', assignedName || ''); // Store assigned name
             localStorage.removeItem('cs_portal_user');
             localStorage.removeItem('tl_portal_user');
           };
@@ -1729,6 +2071,8 @@
             localStorage.setItem('tl_portal_user', username);
             localStorage.removeItem('cs_portal_user');
             localStorage.removeItem('claims_portal_user');
+            localStorage.removeItem('claims_portal_role');
+            localStorage.removeItem('claims_portal_assigned_name');
           };
 
           // Handles CS logout
@@ -1741,8 +2085,12 @@
           // Handles Claims logout
           const handleClaimsLogout = () => {
             setLoggedInClaimsUser(null);
+            setLoggedInClaimsUserRole(null);
+            setLoggedInClaimsAssignedName(null);
             setPortalType(null);
             localStorage.removeItem('claims_portal_user');
+            localStorage.removeItem('claims_portal_role');
+            localStorage.removeItem('claims_portal_assigned_name');
           };
 
           // Handles TL logout
@@ -1763,7 +2111,12 @@
               );
             } else if (portalType === 'claims') {
               return loggedInClaimsUser ? (
-                <ClaimsDashboardPage username={loggedInClaimsUser} onLogout={handleClaimsLogout} />
+                <ClaimsDashboardPage
+                    username={loggedInClaimsUser}
+                    claimsRole={loggedInClaimsUserRole}
+                    loggedInAssignedOfficerName={loggedInClaimsAssignedName}
+                    onLogout={handleClaimsLogout}
+                />
               ) : (
                 <ClaimsLoginPage onLogin={handleClaimsLogin} />
               );
